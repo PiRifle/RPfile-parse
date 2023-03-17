@@ -12,7 +12,7 @@ import io
 import pytest
 
 
-from dockerfile_parse import DockerfileParser
+from rpfile_parse import DockerfileParser
 
 
 @pytest.fixture(

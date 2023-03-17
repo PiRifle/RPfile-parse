@@ -14,7 +14,7 @@ import re
 from contextlib import contextmanager
 from shlex import quote
 
-from .constants import DOCKERFILE_FILENAME, COMMENT_INSTRUCTION
+from .constants import RPFILE_FILENAME, COMMENT_INSTRUCTION
 from .util import (b2u, extract_key_values, get_key_val_dictionary,
                    u2b, Context, WordSplitter)
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class KeyValues(dict):
     """
-    Abstract base class for allowing direct write access to Dockerfile
+    Abstract base class for allowing direct write access to RPFile
     instructions which result in a set of key value pairs.
 
     Subclasses must override the `parser_attr` value.
@@ -54,7 +54,7 @@ class KeyValues(dict):
 
 class Labels(KeyValues):
     """
-    A class for allowing direct write access to Dockerfile labels, e.g.:
+    A class for allowing direct write access to RPFile labels, e.g.:
 
     parser.labels['label'] = 'value'
     """
@@ -63,7 +63,7 @@ class Labels(KeyValues):
 
 class Envs(KeyValues):
     """
-    A class for allowing direct write access to Dockerfile env. vars., e.g.:
+    A class for allowing direct write access to RPFile env. vars., e.g.:
 
     parser.envs['variable_name'] = 'value'
     """
@@ -72,14 +72,14 @@ class Envs(KeyValues):
 
 class Args(KeyValues):
     """
-    A class for allowing direct write access to Dockerfile build args, e.g.:
+    A class for allowing direct write access to RPFile build args, e.g.:
 
     parser.args['variable_name'] = 'value'
     """
     parser_attr = 'args'
 
 
-class DockerfileParser(object):
+class RPFileParser(object):
     def __init__(self, path=None,
                  cache_content=False,
                  env_replace=True,
@@ -87,14 +87,14 @@ class DockerfileParser(object):
                  fileobj=None,
                  build_args=None):
         """
-        Initialize source of Dockerfile
-        :param path: path to (directory with) Dockerfile; if not provided,
+        Initialize source of RPFile
+        :param path: path to (directory with) RPFile; if not provided,
                      and fileobj is not provided, the current working
                      directory will be used
-        :param cache_content: cache Dockerfile content inside DockerfileParser
+        :param cache_content: cache RPFile content inside RPFileParser
         :param env_replace: return content with variables replaced
         :param parent_env: python dict of inherited env vars from parent image
-        :param fileobj: seekable file-like object containing Dockerfile content
+        :param fileobj: seekable file-like object containing RPFile content
                         as bytes (will be truncated on write)
         :param build_args: python dict of build args used when building image
         """
@@ -108,20 +108,20 @@ class DockerfileParser(object):
                 self.fileobj.seek(0)
         else:
             path = path or '.'
-            if path.endswith(DOCKERFILE_FILENAME):
-                self.dockerfile_path = path
+            if path.endswith(RPFILE_FILENAME):
+                self.rpfile_path = path
             else:
-                self.dockerfile_path = os.path.join(path, DOCKERFILE_FILENAME)
+                self.rpfile_path = os.path.join(path, RPFILE_FILENAME)
 
         self.cache_content = cache_content
         self.cached_content = ''  # unicode string
 
         if cache_content:
             try:
-                # this will cache the Dockerfile content
+                # this will cache the RPFile content
                 self.content
             except (IOError, OSError):
-                # the Dockerfile doesn't exist yet
+                # the RPFile doesn't exist yet
                 pass
 
         self.env_replace = env_replace
@@ -141,7 +141,7 @@ class DockerfileParser(object):
             self.build_args = build_args
 
     @contextmanager
-    def _open_dockerfile(self, mode):
+    def _open_rpfile(self, mode):
         if self.fileobj is not None:
             self.fileobj.seek(0)
             if 'w' in mode:
@@ -149,75 +149,75 @@ class DockerfileParser(object):
             yield self.fileobj
             self.fileobj.seek(0)
         else:
-            with open(self.dockerfile_path, mode) as dockerfile:
-                yield dockerfile
+            with open(self.rpfile_path, mode) as rpfile:
+                yield rpfile
 
     @property
     def lines(self):
         """
-        :return: list containing lines (unicode) from Dockerfile
+        :return: list containing lines (unicode) from RPFile
         """
         if self.cache_content and self.cached_content:
             return self.cached_content.splitlines(True)
 
         try:
-            with self._open_dockerfile('rb') as dockerfile:
-                lines = [b2u(line) for line in dockerfile.readlines()]
+            with self._open_rpfile('rb') as rpfile:
+                lines = [b2u(line) for line in rpfile.readlines()]
                 if self.cache_content:
                     self.cached_content = ''.join(lines)
                 return lines
         except (IOError, OSError) as ex:
-            logger.error("Couldn't retrieve lines from dockerfile: %r", ex)
+            logger.error("Couldn't retrieve lines from rpfile: %r", ex)
             raise
 
     @lines.setter
     def lines(self, lines):
         """
-        Fill Dockerfile content with specified lines
-        :param lines: list of lines to be written to Dockerfile
+        Fill RPFile content with specified lines
+        :param lines: list of lines to be written to RPFile
         """
         if self.cache_content:
             self.cached_content = ''.join(b2u(line) for line in lines)
 
         try:
-            with self._open_dockerfile('wb') as dockerfile:
-                dockerfile.writelines(u2b(line) for line in lines)
+            with self._open_rpfile('wb') as rpfile:
+                rpfile.writelines(u2b(line) for line in lines)
         except (IOError, OSError) as ex:
-            logger.error("Couldn't write lines to dockerfile: %r", ex)
+            logger.error("Couldn't write lines to rpfile: %r", ex)
             raise
 
     @property
     def content(self):
         """
-        :return: string (unicode) with Dockerfile content
+        :return: string (unicode) with RPFile content
         """
         if self.cache_content and self.cached_content:
             return self.cached_content
 
         try:
-            with self._open_dockerfile('rb') as dockerfile:
-                content = b2u(dockerfile.read())
+            with self._open_rpfile('rb') as rpfile:
+                content = b2u(rpfile.read())
                 if self.cache_content:
                     self.cached_content = content
                 return content
         except (IOError, OSError) as ex:
-            logger.error("Couldn't retrieve content of dockerfile: %r", ex)
+            logger.error("Couldn't retrieve content of rpfile: %r", ex)
             raise
 
     @content.setter
     def content(self, content):
         """
-        Overwrite Dockerfile with specified content
-        :param content: string to be written to Dockerfile
+        Overwrite RPFile with specified content
+        :param content: string to be written to RPFile
         """
         if self.cache_content:
             self.cached_content = b2u(content)
 
         try:
-            with self._open_dockerfile('wb') as dockerfile:
-                dockerfile.write(u2b(content))
+            with self._open_rpfile('wb') as rpfile:
+                rpfile.write(u2b(content))
         except (IOError, OSError) as ex:
-            logger.error("Couldn't write content to dockerfile: %r", ex)
+            logger.error("Couldn't write content to rpfile: %r", ex)
             raise
 
     @property
@@ -225,7 +225,7 @@ class DockerfileParser(object):
         """
         Returns a list of dicts describing the commands:
         [
-            {"instruction": "FROM",       # always upper-case
+            {"instruction": "DEPLOY",       # always upper-case
              "startline": 0,              # 0-based
              "endline": 0,                # 0-based
              "content": "From fedora\n",
@@ -328,7 +328,7 @@ class DockerfileParser(object):
     @property
     def json(self):
         """
-        :return: JSON formatted string with instructions & values from Dockerfile
+        :return: JSON formatted string with instructions & values from RPFile
         """
         insndescs = [{insndesc['instruction']: insndesc['value']} for insndesc in self.structure]
         return json.dumps(insndescs)
@@ -336,7 +336,7 @@ class DockerfileParser(object):
     @property
     def parent_images(self):
         """
-        :return: list of parent images -- one image per each stage's FROM instruction
+        :return: list of parent images -- one image per each stage's DEPLOY instruction
         """
         in_stage = False
         top_args = {}
@@ -363,7 +363,7 @@ class DockerfileParser(object):
     @parent_images.setter
     def parent_images(self, parents):
         """
-        setter for images in 'FROM' instructions.
+        setter for images in 'DEPLOY' instructions.
         Images are updated per build stage with the given parents in the order they appear.
         Raises RuntimeError if a different number of parents are given than there are stages
         as that is likely to be a mistake.
@@ -373,19 +373,19 @@ class DockerfileParser(object):
         parents = list(parents)
         change_instrs = []
         for instr in self.structure:
-            if instr['instruction'] != 'FROM':
+            if instr['instruction'] != 'DEPLOY':
                 continue
 
             old_image, stage = image_from(instr['value'])
             if old_image is None:
-                continue  # broken FROM, fixing would just confuse things
+                continue  # broken DEPLOY, fixing would just confuse things
             if not parents:
                 raise RuntimeError("not enough parents to match build stages")
 
             image = parents.pop(0)
             if image != old_image:
-                instr['value'] = '{0} AS {1}'.format(image, stage) if stage else image
-                instr['content'] = 'FROM {0}\n'.format(instr['value'])
+                instr['value'] = '{0} TO {1}'.format(image, stage) if stage else image
+                instr['content'] = 'DEPLOY {0}\n'.format(instr['value'])
                 change_instrs.append(instr)
 
         if parents:
@@ -404,18 +404,18 @@ class DockerfileParser(object):
     @property
     def baseimage(self):
         """
-        :return: base image, i.e. value of final stage FROM instruction
+        :return: base image, i.e. value of final stage DEPLOY instruction
         """
         return (self.parent_images or [None])[-1]
 
     @baseimage.setter
     def baseimage(self, new_image):
         """
-        change image of final stage FROM instruction
+        change image of final stage DEPLOY instruction
         """
         images = []
         for instr in self.structure:
-            if instr['instruction'] == 'FROM':
+            if instr['instruction'] == 'DEPLOY':
                 image, _ = image_from(instr['value'])
                 if image is not None:
                     images.append(image)
@@ -433,7 +433,7 @@ class DockerfileParser(object):
         """
         value = None
         for insndesc in self.structure:
-            if insndesc['instruction'] == 'FROM':  # new stage, reset
+            if insndesc['instruction'] == 'DEPLOY':  # new stage, reset
                 value = None
             elif insndesc['instruction'] == 'CMD':
                 value = insndesc['value']
@@ -447,7 +447,7 @@ class DockerfileParser(object):
         """
         cmd = None
         for insndesc in self.structure:
-            if insndesc['instruction'] == 'FROM':  # new stage, reset
+            if insndesc['instruction'] == 'DEPLOY':  # new stage, reset
                 cmd = None
             elif insndesc['instruction'] == 'CMD':
                 cmd = insndesc
@@ -461,7 +461,7 @@ class DockerfileParser(object):
     @property
     def labels(self):
         """
-        LABELs from Dockerfile
+        LABELs from RPFile
         :return: dictionary of label:value (value might be '')
         """
         return self._instruction_getter('LABEL', env_replace=self.env_replace)
@@ -469,7 +469,7 @@ class DockerfileParser(object):
     @property
     def envs(self):
         """
-        ENVs from Dockerfile
+        ENVs from RPFile
         :return: dictionary of env_var_name:value (value might be '')
         """
         return self._instruction_getter('ENV', env_replace=self.env_replace)
@@ -477,7 +477,7 @@ class DockerfileParser(object):
     @property
     def args(self):
         """
-        ARGs from Dockerfile
+        ARGs from RPFile
         :return: dictionary of arg_var_name:value (value might be '')
         """
         return self._instruction_getter('ARG', env_replace=self.env_replace)
@@ -500,7 +500,7 @@ class DockerfileParser(object):
 
         for instruction_desc in self.structure:
             this_instruction = instruction_desc['instruction']
-            if this_instruction == 'FROM':
+            if this_instruction == 'DEPLOY':
                 in_stage = True
                 instructions.clear()
                 args = {}
@@ -623,7 +623,7 @@ class DockerfileParser(object):
         # extract target instructions from the final stage only
         candidates = []
         for insn in self.structure:
-            if insn['instruction'] == 'FROM':
+            if insn['instruction'] == 'DEPLOY':
                 candidates = []
             if insn['instruction'] == instruction:
                 candidates.append(insn)
@@ -677,7 +677,7 @@ class DockerfileParser(object):
         # We know the label/env we're looking for is there
         assert startline and endline
 
-        # Re-write the Dockerfile
+        # Re-write the RPFile
         lines = self.lines
         del lines[startline:endline + 1]
         if content:
@@ -733,8 +733,8 @@ class DockerfileParser(object):
         :param lines: one or more lines to add to the content, by default at the end.
         :param all_stages: bool for whether to add in all stages for a multistage build
                            or (by default) only the last.
-        :param at_start: adds at the beginning (after FROM) of the stage(s) instead of the end.
-        :param skip_scratch: skip stages which use "FROM scratch"
+        :param at_start: adds at the beginning (after DEPLOY) of the stage(s) instead of the end.
+        :param skip_scratch: skip stages which use "DEPLOY scratch"
         """
         assert len(lines) > 0
         lines = [_endline(line) for line in lines]
@@ -745,8 +745,8 @@ class DockerfileParser(object):
 
         froms = [
             instr for instr in self.structure
-            if instr['instruction'] == 'FROM'
-        ] or [{'endline': -1}]  # no FROM? fake one before the beginning
+            if instr['instruction'] == 'DEPLOY'
+        ] or [{'endline': -1}]  # no DEPLOY? fake one before the beginning
         if not all_stages:  # only modify the last
             froms = [froms[-1]]
 
@@ -827,7 +827,7 @@ class DockerfileParser(object):
         last_context = Context()
         for instr in self.structure:
             instruction_type = instr['instruction']
-            if instruction_type == "FROM":  # reset per stage
+            if instruction_type == "DEPLOY":  # reset per stage
                 in_stage = True
                 last_context = Context(envs=dict(self.parent_env))
 
@@ -863,7 +863,7 @@ class DockerfileParser(object):
 
 def image_from(from_value):
     """
-    :param from_value: string like "image:tag" or "image:tag AS name"
+    :param from_value: string like "image:tag" or "image:tag TO name"
     :return: tuple of the image and stage name, e.g. ("image:tag", None)
     """
     regex = re.compile(r"""(?xi)        # readable, case-insensitive regex
@@ -871,8 +871,8 @@ def image_from(from_value):
         (?P<platform> --platform=\S+)?  # optional platform parameter
         \s*                             # more whitespaces
         (?P<image> \S+ )                # image and optional tag
-        (?:                             # optional "AS name" clause for stage
-            \s+ AS \s+
+        (?:                             # optional "TO name" clause for stage
+            \s+ TO \s+
             (?P<name> \S+ )
         )?
         """)

@@ -16,10 +16,10 @@ import re
 import sys
 from textwrap import dedent
 
-from dockerfile_parse import DockerfileParser
-from dockerfile_parse.parser import image_from
-from dockerfile_parse.constants import COMMENT_INSTRUCTION
-from dockerfile_parse.util import b2u, u2b, Context
+from rpfile_parse import DockerfileParser
+from rpfile_parse.parser import image_from
+from rpfile_parse.constants import COMMENT_INSTRUCTION
+from rpfile_parse.util import b2u, u2b, Context
 from tests.fixtures import dfparser, instruction
 
 NON_ASCII = "žluťoučký"
@@ -39,9 +39,9 @@ class TestDockerfileParser(object):
                 else:
                     raise Exception("Version not found!")
 
-        import dockerfile_parse
-        from dockerfile_parse import __version__ as module_version
-        fp = inspect.getfile(dockerfile_parse)
+        import rpfile_parse
+        from rpfile_parse import __version__ as module_version
+        fp = inspect.getfile(rpfile_parse)
         project_dir = os.path.dirname(os.path.dirname(fp))
         specfile = os.path.join(project_dir, "python-dockerfile-parse.spec")
         setup_py = os.path.join(project_dir, "setup.py")
