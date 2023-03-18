@@ -1,6 +1,6 @@
-DEPLOY "windows10_sala9.img" TO "system"
-ARG SERVER=http://192.168.8.182:3000
-COPY "windows10_vm.img" "vmki/windows.img"
-COPY "ubuntu_server_2022.img" "vmki/ubuntu.img"
-COPY "centos.iso" "vmki/obrazy/"
-UNPACK "zip_10MB.zip" "vmki/aaa"
+DEPLOY "system.img" TO "system"
+ARG SERVER=http://localhost:3000
+COPY "testfile100mb.bin" "vmki/windows.img"
+# COPY "ubuntu_server_2022.img" "vmki/ubuntu.img"
+# COPY "centos.iso" "vmki/obrazy/"
+UNPACK "http://localhost:3000/testfile10mb.bin" "vmki/aaa"
