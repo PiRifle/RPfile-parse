@@ -30,9 +30,9 @@ with io.open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='dockerfile-parse',
+    name='rpfile-parse',
     version='2.0.0',
-    description='Python library for Dockerfile manipulation',
+    description='Python library for RPfile manipulation',
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='Jiri Popelka',
